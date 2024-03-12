@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
 pub struct Problem {
     pub var_count: usize,
@@ -47,6 +47,35 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     assert_eq!(clause_count, clauses.len());
 
     Problem { var_count, clauses }
+}
+
+pub enum Solution {
+    Sat { model: Vec<i32> },
+    Unsat,
+    Unknown,
+}
+
+pub fn write_solution(writer: &mut impl Write, solution: &Solution) {
+    let mut writer = BufWriter::new(writer);
+    writeln!(writer, "c Solved by VW Passat.").unwrap();
+
+    let solution_str = match solution {
+        Solution::Sat { .. } => "SATISFIABLE",
+        Solution::Unsat => "UNSATISFIABLE",
+        Solution::Unknown => "UNKNOWN",
+    };
+    writeln!(writer, "s {solution_str}").unwrap();
+
+    if let Solution::Sat { model } = solution {
+        const PER_LINE: usize = 10;
+        for chunk in model.chunks(PER_LINE) {
+            let chunk_str = chunk
+                .iter()
+                .fold(String::new(), |str, lit| str + &lit.to_string() + " ");
+            writeln!(writer, "v {chunk_str}").unwrap();
+        }
+        writeln!(writer, "v 0").unwrap();
+    }
 }
 
 #[cfg(test)]
