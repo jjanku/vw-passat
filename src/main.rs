@@ -1,4 +1,5 @@
 mod io;
+mod solver;
 mod types;
 
 fn main() {
@@ -8,6 +9,10 @@ fn main() {
         return;
     }
     let mut input = std::fs::File::open(&args[1]).unwrap();
+    let mut output = std::io::stdout();
 
     let problem = io::read_problem(&mut input);
+    let mut solver = solver::Solver::new(&problem);
+    let solution = solver.solve();
+    io::write_solution(&mut output, &solution);
 }
