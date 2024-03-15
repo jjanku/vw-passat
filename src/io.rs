@@ -1,9 +1,6 @@
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
-pub struct Problem {
-    pub var_count: usize,
-    pub clauses: Vec<Vec<i32>>,
-}
+use crate::types::{Lit, Problem, Solution};
 
 pub fn read_problem(reader: &mut impl Read) -> Problem {
     let mut lines = BufReader::new(reader).lines().map(|l| l.unwrap());
@@ -31,7 +28,7 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
 
     for line in lines {
         for word in line.split_whitespace() {
-            let lit = word.parse::<i32>().unwrap();
+            let lit = word.parse::<Lit>().unwrap();
             match lit {
                 0 => {
                     clauses.push(clause.clone());
@@ -47,12 +44,6 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     assert_eq!(clause_count, clauses.len());
 
     Problem { var_count, clauses }
-}
-
-pub enum Solution {
-    Sat { model: Vec<i32> },
-    Unsat,
-    Unknown,
 }
 
 pub fn write_solution(writer: &mut impl Write, solution: &Solution) {
