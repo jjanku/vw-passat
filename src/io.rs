@@ -42,6 +42,11 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     }
 
     assert_eq!(clause_count, clauses.len());
+    assert!(clauses
+        .iter()
+        .flatten()
+        .map(|lit| lit.abs() as usize)
+        .all(|var| (1..=var_count).contains(&var)));
 
     Problem { var_count, clauses }
 }
