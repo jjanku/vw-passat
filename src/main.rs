@@ -12,7 +12,7 @@ fn main() {
     let mut output = std::io::stdout();
 
     let problem = io::read_problem(&mut input);
-    let mut solver = solver::Solver::new(&problem);
+    let mut solver = solver::Solver::new(problem);
     let solution = solver.solve();
     io::write_solution(&mut output, &solution);
 }
