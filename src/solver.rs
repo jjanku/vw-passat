@@ -10,23 +10,42 @@ fn to_var(lit: Lit) -> Var {
     lit.abs() as Var
 }
 
-struct Assignment(Vec<Option<bool>>);
+struct Assignment {
+    values: Vec<Option<bool>>,
+    trail: Vec<Lit>,
+    decisions: Vec<usize>,
+}
 
 impl Assignment {
     fn new(var_count: usize) -> Self {
-        Self(vec![None; var_count + 1])
-    }
-
-    fn set(&mut self, lit: Lit) {
-        self.0[to_var(lit)] = Some(lit.is_positive());
-    }
-
-    fn unset(&mut self, lit: Lit) {
-        self.0[to_var(lit)] = None;
+        Self {
+            values: vec![None; var_count + 1],
+            trail: vec![],
+            decisions: vec![],
+        }
     }
 
     fn eval(&self, lit: Lit) -> Option<bool> {
-        self.0[to_var(lit)].map(|val| val == lit.is_positive())
+        self.values[to_var(lit)].map(|val| val == lit.is_positive())
+    }
+
+    fn assign(&mut self, lit: Lit) {
+        self.values[to_var(lit)] = Some(lit.is_positive());
+        self.trail.push(lit);
+    }
+
+    fn decide(&mut self, lit: Lit) {
+        self.assign(lit);
+        self.decisions.push(self.trail.len() - 1);
+    }
+
+    fn backtrack(&mut self) {
+        let dec = self.decisions.pop().unwrap();
+        for lit in self.trail.drain(dec + 1..) {
+            self.values[to_var(lit)] = None;
+        }
+        let lit = self.trail.pop().unwrap();
+        self.assign(-lit);
     }
 }
 
@@ -61,10 +80,7 @@ impl<T> IndexMut<Lit> for LitMap<T> {
 pub struct Solver {
     clauses: Vec<Clause>,
 
-    // TODO: move to a Tracker struct?
     assignment: Assignment,
-    trail: Vec<Lit>,
-    decisions: Vec<usize>,
 
     watched: LitMap<Vec<usize>>,
     prop_head: usize,
@@ -85,38 +101,15 @@ impl Solver {
         Solver {
             clauses,
             assignment: Assignment::new(var_count),
-            trail: vec![],
-            decisions: vec![],
             watched,
             prop_head: 0,
         }
     }
 
-    fn assign(&mut self, lit: Lit) {
-        self.assignment.set(lit);
-        self.trail.push(lit);
-    }
-
-    fn decide(&mut self, lit: Lit) {
-        self.assign(lit);
-        self.decisions.push(self.trail.len() - 1);
-    }
-
-    fn backtrack(&mut self) {
-        let dec = self.decisions.pop().unwrap();
-        for lit in self.trail.drain(dec + 1..) {
-            self.assignment.unset(lit);
-        }
-        let lit = self.trail[dec];
-        self.trail[dec] = -lit;
-        self.assignment.set(-lit);
-        self.prop_head = std::cmp::min(self.prop_head, self.trail.len() - 1);
-    }
-
     fn choose_var(&self) -> Option<Var> {
         // TODO: add iter() to Assignment?
         self.assignment
-            .0
+            .values
             .iter()
             .enumerate()
             .skip(1)
@@ -125,7 +118,7 @@ impl Solver {
     }
 
     fn propagate(&mut self) -> bool {
-        while let Some(lit) = self.trail.get(self.prop_head) {
+        while let Some(lit) = self.assignment.trail.get(self.prop_head) {
             let lit = -lit;
 
             let mut i = 0;
@@ -165,7 +158,7 @@ impl Solver {
                 if self.assignment.eval(clause[0]).is_none() {
                     // unit clause
                     let unit_lit = clause[0];
-                    self.assign(unit_lit);
+                    self.assignment.assign(unit_lit);
                 } else {
                     // conflict
                     return false;
@@ -181,12 +174,11 @@ impl Solver {
     }
 
     pub fn solve(&mut self) -> Solution {
-        // FIXME: decompose properly so that we can use iter()
-        for i in 0..self.clauses.len() {
-            match self.clauses[i][..] {
+        for clause in &self.clauses {
+            match clause[..] {
                 [] => return Solution::Unsat,
                 [lit] => match self.assignment.eval(lit) {
-                    None => self.assign(lit),
+                    None => self.assignment.assign(lit),
                     Some(false) => return Solution::Unsat,
                     Some(true) => (),
                 },
@@ -199,17 +191,18 @@ impl Solver {
         }
 
         while let Some(var) = self.choose_var() {
-            self.decide(var as Lit);
+            self.assignment.decide(var as Lit);
 
             while !self.propagate() {
-                if self.decisions.is_empty() {
+                if self.assignment.decisions.is_empty() {
                     return Solution::Unsat;
                 }
-                self.backtrack();
+                self.assignment.backtrack();
+                self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail.len() - 1);
             }
         }
 
-        let model: Vec<Lit> = self.trail.clone();
+        let model: Vec<Lit> = self.assignment.trail.clone();
         Solution::Sat { model }
     }
 }
