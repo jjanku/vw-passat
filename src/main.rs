@@ -1,6 +1,4 @@
-mod io;
-mod solver;
-mod types;
+use vw_passat::{io, solver};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();

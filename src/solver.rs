@@ -314,17 +314,28 @@ impl Solver {
     }
 }
 
-pub fn verify(clauses: &[Clause], model: &[Lit]) -> bool {
-    let mut sorted = model.to_vec();
-    sorted.sort();
-    clauses
-        .iter()
-        .all(|clause| clause.iter().any(|lit| sorted.binary_search(lit).is_ok()))
+pub fn verify(problem: &Problem, sat: bool, solution: &Solution) -> bool {
+    match solution {
+        Solution::Sat { model } => {
+            if sat {
+                let mut sorted = model.to_vec();
+                sorted.sort();
+                problem
+                    .clauses
+                    .iter()
+                    .all(|clause| clause.iter().any(|lit| sorted.binary_search(lit).is_ok()))
+            } else {
+                false
+            }
+        }
+        Solution::Unsat => !sat,
+        Solution::Unknown => false,
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{Clause, Problem, Solution};
+    use crate::types::{Clause, Problem};
 
     use super::{verify, Assignment, Reason, Solver};
 
@@ -346,27 +357,21 @@ mod tests {
         assert_eq!(ass.eval(1), None);
     }
 
-    fn check(clauses: &[Clause], sat: bool) {
+    fn check(clauses: Vec<Clause>, sat: bool) {
         let problem = Problem {
             var_count: clauses.iter().flatten().max().unwrap().abs() as usize,
-            clauses: clauses.to_vec(),
+            clauses,
         };
 
-        match Solver::new(problem).solve() {
-            Solution::Sat { model } => {
-                assert!(sat);
-                assert!(verify(&clauses, &model));
-            }
-            Solution::Unsat => assert!(!sat),
-            Solution::Unknown => assert!(false),
-        }
+        let solution = Solver::new(problem.clone()).solve();
+        assert!(verify(&problem, sat, &solution));
     }
 
     #[test]
     /// Formulas from the lecture.
     fn basic_sat() {
         let clauses = vec![vec![1, 2], vec![-1, 2], vec![-1, -2, 3], vec![-1, -2, -3]];
-        check(&clauses, true);
+        check(clauses, true);
 
         let clauses = vec![
             vec![-1, -2, 3],
@@ -377,7 +382,7 @@ mod tests {
             vec![-3, -4, 5],
             vec![-3, -4, -5],
         ];
-        check(&clauses, true);
+        check(clauses, true);
     }
 
     #[test]
@@ -391,13 +396,13 @@ mod tests {
             vec![-1, 2, 4],
         ];
 
-        check(&clauses, false);
+        check(clauses, false);
     }
 
     #[test]
     /// Formulas with non-trivial propagation before the first decision.
     fn kickstart() {
         let clauses = vec![vec![1], vec![-1, 2], vec![-1, -2]];
-        check(&clauses, false);
+        check(clauses, false);
     }
 }
