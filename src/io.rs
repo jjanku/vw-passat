@@ -27,6 +27,11 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     let mut clause = vec![];
 
     for line in lines {
+        // FIXME: doesn't conform to the standard format
+        if line.starts_with("%") {
+            break;
+        }
+
         for word in line.split_whitespace() {
             let lit = word.parse::<Lit>().unwrap();
             match lit {
