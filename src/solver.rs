@@ -251,8 +251,6 @@ impl Solver {
             }
         };
 
-        learnt.swap(0, i_assert);
-
         let backtrack_level = if learnt.len() == 1 {
             if self.assignment.last_level() > 0 {
                 1
@@ -260,11 +258,16 @@ impl Solver {
                 self.assignment.eval(learnt[0]).unwrap() as usize
             }
         } else {
-            learnt[1..]
+            learnt.swap(0, i_assert);
+
+            let (i_max, _) = learnt[1..]
                 .iter()
-                .map(|&lit| self.assignment.level(lit).unwrap() + 1)
-                .max()
-                .unwrap()
+                .enumerate()
+                .max_by_key(|(_, &lit)| self.assignment.level(lit).unwrap())
+                .unwrap();
+            learnt.swap(1, i_max + 1);
+
+            self.assignment.level(learnt[1]).unwrap() + 1
         };
 
         (learnt, backtrack_level)
@@ -302,7 +305,6 @@ impl Solver {
                 self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail.len());
 
                 let lit_assert = learnt[0];
-                // FIXME: the watch initialization may be incorrect here
                 let i_clause = self.add(learnt);
                 self.assignment
                     .set(lit_assert, Reason::Propagation { i_clause });
