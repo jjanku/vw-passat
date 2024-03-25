@@ -8,7 +8,7 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     let (var_count, clause_count) = loop {
         let line = lines.next().unwrap();
 
-        if line.starts_with("c") {
+        if line.starts_with('c') {
             // comment line
             continue;
         }
@@ -28,7 +28,7 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
 
     for line in lines {
         // FIXME: doesn't conform to the standard format
-        if line.starts_with("%") {
+        if line.starts_with('%') {
             break;
         }
 
@@ -50,7 +50,7 @@ pub fn read_problem(reader: &mut impl Read) -> Problem {
     assert!(clauses
         .iter()
         .flatten()
-        .map(|lit| lit.abs() as usize)
+        .map(|lit| lit.unsigned_abs() as usize)
         .all(|var| (1..=var_count).contains(&var)));
 
     Problem { var_count, clauses }

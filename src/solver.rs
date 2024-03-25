@@ -7,7 +7,7 @@ type Var = usize;
 // TODO: move to impl Lit?
 fn to_var(lit: Lit) -> Var {
     assert_ne!(lit, 0);
-    lit.abs() as Var
+    lit.unsigned_abs() as Var
 }
 
 #[derive(Clone, Copy, Debug)]
