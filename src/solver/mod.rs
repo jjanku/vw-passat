@@ -1,10 +1,16 @@
-use std::{
-    cmp::Ordering,
-    iter::Peekable,
-    ops::{Index, IndexMut},
+mod assignment;
+mod branching;
+mod map;
+mod restart;
+
+use std::iter::Peekable;
+
+use crate::{
+    solver::assignment::Reason,
+    types::{Clause, Lit, Problem, Solution},
 };
 
-use crate::types::{Clause, Lit, Problem, Solution};
+use self::{assignment::Assignment, branching::Chooser, map::LitMap, restart::Luby};
 
 type Var = usize;
 
@@ -12,317 +18,6 @@ type Var = usize;
 fn to_var(lit: Lit) -> Var {
     assert_ne!(lit, 0);
     lit.unsigned_abs() as Var
-}
-
-#[derive(Clone, Copy, Debug)]
-enum Reason {
-    Decision,
-    Propagation { i_clause: usize },
-}
-
-#[derive(Clone)]
-struct VarData {
-    value: bool,
-    level: usize,
-    reason: Reason,
-}
-
-struct Assignment {
-    data: Vec<Option<VarData>>,
-    trail: Vec<Lit>,
-    levels: Vec<usize>,
-}
-
-impl Assignment {
-    fn new(var_count: usize) -> Self {
-        Self {
-            data: vec![None; var_count + 1],
-            trail: vec![],
-            levels: vec![],
-        }
-    }
-
-    fn eval(&self, lit: Lit) -> Option<bool> {
-        self.data[to_var(lit)]
-            .as_ref()
-            .map(|data| data.value == lit.is_positive())
-    }
-
-    fn set(&mut self, lit: Lit, reason: Reason) {
-        self.trail.push(lit);
-
-        if let Reason::Decision = reason {
-            self.levels.push(self.trail.len() - 1);
-        }
-
-        let data = VarData {
-            value: lit.is_positive(),
-            level: self.last_level(),
-            reason,
-        };
-        self.data[to_var(lit)] = Some(data);
-    }
-
-    fn level(&self, lit: Lit) -> Option<usize> {
-        self.data[to_var(lit)].as_ref().map(|data| data.level)
-    }
-
-    fn reason(&self, lit: Lit) -> Option<Reason> {
-        self.data[to_var(lit)].as_ref().map(|data| data.reason)
-    }
-
-    fn last_level(&self) -> usize {
-        self.levels.len()
-    }
-
-    /// Revert all changes at `level` (incl.) and above.
-    fn backtrack(&mut self, level: usize) {
-        self.levels.drain(level..);
-        let i = self.levels.pop().unwrap_or(0);
-        for lit in self.trail.drain(i..) {
-            self.data[to_var(lit)] = None;
-        }
-    }
-}
-
-struct LitMap<T>(Vec<T>);
-
-impl<T> LitMap<T> {
-    fn position(lit: Lit) -> usize {
-        2 * to_var(lit) - (lit.is_negative() as usize)
-    }
-}
-
-impl<T: Clone + Default> LitMap<T> {
-    fn new(var_count: usize) -> Self {
-        Self(vec![Default::default(); 2 * var_count + 1])
-    }
-}
-
-impl<T> Index<Lit> for LitMap<T> {
-    type Output = T;
-
-    fn index(&self, index: Lit) -> &Self::Output {
-        &self.0[LitMap::<T>::position(index)]
-    }
-}
-
-impl<T> IndexMut<Lit> for LitMap<T> {
-    fn index_mut(&mut self, index: Lit) -> &mut Self::Output {
-        &mut self.0[LitMap::<T>::position(index)]
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-struct OrdF64(f64);
-
-impl Eq for OrdF64 {}
-
-impl PartialOrd for OrdF64 {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for OrdF64 {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap()
-    }
-}
-
-impl OrdF64 {
-    fn new(value: f64) -> Self {
-        assert!(!value.is_nan());
-        Self(value)
-    }
-}
-
-struct VarHeap<T> {
-    heap: Vec<(T, Var)>,
-    index: Vec<usize>,
-    size: usize,
-}
-
-impl<T: Ord + Copy> VarHeap<T> {
-    fn new(var_count: usize, default: T) -> Self {
-        let mut heap = vec![];
-        // 0 inserted for indexing by variables
-        let mut index = vec![0];
-
-        for var in 1..=var_count {
-            index.push(heap.len());
-            heap.push((default, var));
-        }
-
-        let size = var_count;
-
-        Self { heap, index, size }
-    }
-
-    fn swap(&mut self, i: usize, j: usize) {
-        self.heap.swap(i, j);
-        self.index.swap(self.heap[i].1, self.heap[j].1);
-    }
-
-    fn sift_up(&mut self, mut pos: usize) {
-        while pos > 0 {
-            let parent = (pos - 1) / 2;
-            if self.heap[pos].0 <= self.heap[parent].0 {
-                break;
-            }
-            self.swap(pos, parent);
-            pos = parent;
-        }
-    }
-
-    fn sift_down(&mut self, mut pos: usize) {
-        loop {
-            let mut max = pos;
-            let left = 2 * pos + 1;
-            if left < self.size && self.heap[left].0 > self.heap[max].0 {
-                max = left;
-            }
-            let right = left + 1;
-            if right < self.size && self.heap[right].0 > self.heap[max].0 {
-                max = right;
-            }
-
-            if max != pos {
-                self.swap(pos, max);
-                pos = max;
-            } else {
-                break;
-            }
-        }
-    }
-
-    fn set(&mut self, var: Var, val: T) {
-        let pos = self.index[var];
-        self.heap[pos] = (val, var);
-
-        self.sift_up(pos);
-        self.sift_down(pos);
-    }
-
-    fn get(&self, var: Var) -> T {
-        self.heap[self.index[var]].0
-    }
-
-    /// Applies `f` to every value in the heap.
-    /// The supplied function must preserve the ordering of the items!
-    fn transform(&mut self, mut f: impl FnMut(T) -> T) {
-        for (val, _) in &mut self.heap {
-            *val = f(*val);
-        }
-    }
-
-    fn max(&self) -> Option<Var> {
-        if self.size != 0 {
-            Some(self.heap[0].1)
-        } else {
-            None
-        }
-    }
-
-    fn extract(&mut self) -> Option<Var> {
-        if self.size != 0 {
-            let var = self.heap[0].1;
-            self.swap(0, self.size - 1);
-            self.size -= 1;
-            self.sift_down(0);
-            Some(var)
-        } else {
-            None
-        }
-    }
-
-    fn restore(&mut self) -> Option<Var> {
-        if self.size != self.heap.len() {
-            self.size += 1;
-            let var = self.heap[self.size - 1].1;
-            self.sift_up(self.size - 1);
-            Some(var)
-        } else {
-            None
-        }
-    }
-}
-
-struct Chooser {
-    k: f64,
-    seen: Vec<bool>,
-    heap: VarHeap<OrdF64>,
-}
-
-impl Chooser {
-    fn new(var_count: usize) -> Self {
-        Self {
-            k: 1.0,
-            seen: vec![false; var_count + 1],
-            heap: VarHeap::new(var_count, OrdF64::new(0.0)),
-        }
-    }
-
-    fn touch(&mut self, var: Var) {
-        if !self.seen[var] {
-            self.seen[var] = true;
-
-            let val = self.heap.get(var);
-            self.heap.set(var, OrdF64::new(val.0 + self.k));
-        }
-    }
-
-    fn rescale(&mut self) {
-        self.k *= 1.01;
-
-        const THRESHOLD: f64 = 10e100;
-        if self.k > THRESHOLD {
-            self.heap
-                .transform(|OrdF64(val)| OrdF64::new(val / THRESHOLD));
-            self.k /= THRESHOLD;
-        }
-
-        for var_seen in &mut self.seen {
-            *var_seen = false;
-        }
-    }
-
-    fn choose(&mut self, assignment: &Assignment) -> Option<Var> {
-        let mut res = None;
-
-        while let Some(var) = self.heap.max() {
-            if assignment.eval(var as Lit).is_none() {
-                res = Some(var);
-                break;
-            }
-            self.heap.extract();
-        }
-        while self.heap.restore().is_some() {}
-
-        res
-    }
-}
-
-struct Luby {
-    base: usize,
-    uv: (isize, isize),
-}
-
-impl Luby {
-    fn new(base: usize) -> Self {
-        Self { base, uv: (1, 1) }
-    }
-}
-
-impl Iterator for Luby {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (u, v) = self.uv;
-        // Based on Knuth's formula, see https://oeis.org/A182105.
-        self.uv = if u & -u == v { (u + 1, 1) } else { (u, 2 * v) };
-        Some(self.base * v as usize)
-    }
 }
 
 pub struct Solver {
@@ -371,7 +66,7 @@ impl Solver {
     }
 
     fn propagate(&mut self) -> Option<usize> {
-        while let Some(lit) = self.assignment.trail.get(self.prop_head) {
+        while let Some(lit) = self.assignment.trail().get(self.prop_head) {
             let lit = -lit;
 
             let mut i = 0;
@@ -431,7 +126,7 @@ impl Solver {
         let mut learnt = self.clauses[i_conflict].clone();
         let last_level = self.assignment.last_level();
 
-        let mut i_trail = self.assignment.trail.len();
+        let mut i_trail = self.assignment.trail().len();
         let i_assert = loop {
             // FIXME: which vars should be touched?
             for &lit in &learnt {
@@ -449,7 +144,7 @@ impl Solver {
             }
 
             i_trail -= 1;
-            let on_lit = self.assignment.trail[i_trail];
+            let on_lit = self.assignment.trail()[i_trail];
 
             let i_reason = match self.assignment.reason(on_lit).unwrap() {
                 Reason::Propagation { i_clause } => i_clause,
@@ -524,7 +219,7 @@ impl Solver {
                     return Solution::Unsat;
                 }
                 self.assignment.backtrack(level);
-                self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail.len());
+                self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail().len());
 
                 let lit_assert = learnt[0];
                 let i_clause = self.add(learnt);
@@ -537,12 +232,12 @@ impl Solver {
                 self.restart_threshold.next();
                 if self.assignment.last_level() >= 1 {
                     self.assignment.backtrack(1);
-                    self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail.len());
+                    self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail().len());
                 }
             }
         }
 
-        let model: Vec<Lit> = self.assignment.trail.clone();
+        let model: Vec<Lit> = self.assignment.trail().to_vec();
         Solution::Sat { model }
     }
 }
@@ -570,32 +265,7 @@ pub fn verify(problem: &Problem, sat: bool, solution: &Solution) -> bool {
 mod tests {
     use crate::types::{Clause, Problem};
 
-    use super::{verify, Assignment, Luby, Reason, Solver};
-
-    #[test]
-    fn assignment() {
-        let mut ass = Assignment::new(2);
-
-        assert_eq!(ass.last_level(), 0);
-
-        ass.set(1, Reason::Decision);
-        ass.set(-2, Reason::Propagation { i_clause: 0 });
-
-        assert_eq!(ass.last_level(), 1);
-        assert_eq!(ass.level(1), Some(1));
-        assert_eq!(ass.level(2), Some(1));
-
-        ass.backtrack(1);
-        assert_eq!(ass.eval(2), None);
-        assert_eq!(ass.eval(1), None);
-    }
-
-    #[test]
-    fn luby() {
-        let expected = vec![1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, 1, 1, 2, 1, 1];
-        let actual: Vec<usize> = Luby::new(1).take(20).collect();
-        assert_eq!(expected, actual);
-    }
+    use super::{verify, Solver};
 
     fn check(clauses: Vec<Clause>, sat: bool) {
         let problem = Problem {
