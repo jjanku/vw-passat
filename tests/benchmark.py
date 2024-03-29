@@ -1,5 +1,7 @@
+import argparse
 import os
 import os.path as path
+import re
 import subprocess
 
 
@@ -43,6 +45,17 @@ def dir_key(dir):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--filter', help='run tests only in dirs matching FILTER'
+    )
+    args = parser.parse_args()
+
+    dir_pattern = re.compile(
+        args.filter if args.filter is not None
+        else '.'
+    )
+
     os.chdir(path.dirname(__file__))
 
     dirs = os.listdir(DATA)
@@ -52,6 +65,8 @@ def main():
     solved = 0
 
     for dir in dirs:
+        if dir_pattern.search(dir) is None:
+            continue
         try:
             res = benchmark(path.join(DATA, dir))
             solved += res[0]
