@@ -2,6 +2,14 @@ use std::ops::{Index, IndexMut};
 
 use crate::types::{to_var, Lit};
 
+// TODO: make it a struct?
+// would need to implement iter, index, swap
+pub type VarMap<T> = Vec<T>;
+
+pub fn var_map<T: Clone + Default>(var_count: usize) -> VarMap<T> {
+    vec![Default::default(); var_count + 1]
+}
+
 pub struct LitMap<T>(Vec<T>);
 
 impl<T> LitMap<T> {

@@ -1,5 +1,7 @@
 use crate::types::{to_var, Lit};
 
+use super::map::{var_map, VarMap};
+
 #[derive(Clone, Copy, Debug)]
 pub enum Reason {
     Decision,
@@ -14,7 +16,7 @@ struct VarData {
 }
 
 pub struct Assignment {
-    data: Vec<Option<VarData>>,
+    data: VarMap<Option<VarData>>,
     trail: Vec<Lit>,
     levels: Vec<usize>,
 }
@@ -22,7 +24,7 @@ pub struct Assignment {
 impl Assignment {
     pub fn new(var_count: usize) -> Self {
         Self {
-            data: vec![None; var_count + 1],
+            data: var_map(var_count),
             trail: vec![],
             levels: vec![],
         }

@@ -2,7 +2,10 @@ use std::cmp::Ordering;
 
 use crate::types::{Lit, Var};
 
-use super::assignment::Assignment;
+use super::{
+    assignment::Assignment,
+    map::{var_map, VarMap},
+};
 
 #[derive(Clone, Copy, PartialEq)]
 struct OrdF64(f64);
@@ -30,18 +33,17 @@ impl OrdF64 {
 
 struct VarHeap<T> {
     heap: Vec<(T, Var)>,
-    index: Vec<usize>,
+    index: VarMap<usize>,
     size: usize,
 }
 
 impl<T: Ord + Copy> VarHeap<T> {
     fn new(var_count: usize, default: T) -> Self {
         let mut heap = vec![];
-        // 0 inserted for indexing by variables
-        let mut index = vec![0];
+        let mut index: VarMap<usize> = var_map(var_count);
 
         for var in 1..=var_count {
-            index.push(heap.len());
+            index[var] = heap.len();
             heap.push((default, var));
         }
 
@@ -141,7 +143,7 @@ impl<T: Ord + Copy> VarHeap<T> {
 
 pub struct Evsids {
     k: f64,
-    seen: Vec<bool>,
+    seen: VarMap<bool>,
     heap: VarHeap<OrdF64>,
 }
 
@@ -149,7 +151,7 @@ impl Evsids {
     pub fn new(var_count: usize) -> Self {
         Self {
             k: 1.0,
-            seen: vec![false; var_count + 1],
+            seen: var_map(var_count),
             heap: VarHeap::new(var_count, OrdF64::new(0.0)),
         }
     }
