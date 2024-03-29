@@ -139,13 +139,13 @@ impl<T: Ord + Copy> VarHeap<T> {
     }
 }
 
-pub struct Chooser {
+pub struct Evsids {
     k: f64,
     seen: Vec<bool>,
     heap: VarHeap<OrdF64>,
 }
 
-impl Chooser {
+impl Evsids {
     pub fn new(var_count: usize) -> Self {
         Self {
             k: 1.0,

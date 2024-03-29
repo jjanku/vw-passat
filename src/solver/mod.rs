@@ -10,7 +10,7 @@ use crate::{
     types::{to_var, Clause, Lit, Problem, Solution},
 };
 
-use self::{assignment::Assignment, branching::Chooser, map::LitMap, restart::Luby};
+use self::{assignment::Assignment, branching::Evsids, map::LitMap, restart::Luby};
 
 pub struct Solver {
     clauses: Vec<Clause>,
@@ -20,7 +20,7 @@ pub struct Solver {
     watched: LitMap<Vec<usize>>,
     prop_head: usize,
 
-    chooser: Chooser,
+    evsids: Evsids,
 
     conflicts: usize,
     restart_threshold: Peekable<Luby>,
@@ -35,7 +35,7 @@ impl Solver {
             assignment: Assignment::new(var_count),
             watched: LitMap::<Vec<usize>>::new(var_count),
             prop_head: 0,
-            chooser: Chooser::new(var_count),
+            evsids: Evsids::new(var_count),
             conflicts: 0,
             restart_threshold: Luby::new(16).peekable(),
         };
@@ -122,7 +122,7 @@ impl Solver {
         let i_assert = loop {
             // FIXME: which vars should be touched?
             for &lit in &learnt {
-                self.chooser.touch(to_var(lit));
+                self.evsids.touch(to_var(lit));
             }
 
             let mut iter = learnt
@@ -175,7 +175,7 @@ impl Solver {
             self.assignment.level(learnt[1]).unwrap() + 1
         };
 
-        self.chooser.rescale();
+        self.evsids.rescale();
 
         (learnt, backtrack_level)
     }
@@ -199,7 +199,7 @@ impl Solver {
             return Solution::Unsat;
         }
 
-        while let Some(var) = self.chooser.choose(&self.assignment) {
+        while let Some(var) = self.evsids.choose(&self.assignment) {
             self.assignment.set(-(var as Lit), Reason::Decision);
 
             while let Some(i_conflict) = self.propagate() {
