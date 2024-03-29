@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    iter::Peekable,
     ops::{Index, IndexMut},
 };
 
@@ -302,6 +303,28 @@ impl Chooser {
     }
 }
 
+struct Luby {
+    base: usize,
+    uv: (isize, isize),
+}
+
+impl Luby {
+    fn new(base: usize) -> Self {
+        Self { base, uv: (1, 1) }
+    }
+}
+
+impl Iterator for Luby {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (u, v) = self.uv;
+        // Based on Knuth's formula, see https://oeis.org/A182105.
+        self.uv = if u & -u == v { (u + 1, 1) } else { (u, 2 * v) };
+        Some(self.base * v as usize)
+    }
+}
+
 pub struct Solver {
     clauses: Vec<Clause>,
 
@@ -311,6 +334,9 @@ pub struct Solver {
     prop_head: usize,
 
     chooser: Chooser,
+
+    conflicts: usize,
+    restart_threshold: Peekable<Luby>,
 }
 
 impl Solver {
@@ -323,6 +349,8 @@ impl Solver {
             watched: LitMap::<Vec<usize>>::new(var_count),
             prop_head: 0,
             chooser: Chooser::new(var_count),
+            conflicts: 0,
+            restart_threshold: Luby::new(16).peekable(),
         };
 
         for clause in clauses {
@@ -488,6 +516,8 @@ impl Solver {
             self.assignment.set(-(var as Lit), Reason::Decision);
 
             while let Some(i_conflict) = self.propagate() {
+                self.conflicts += 1;
+
                 let (learnt, level) = self.analyze(i_conflict);
 
                 if level == 0 {
@@ -500,6 +530,15 @@ impl Solver {
                 let i_clause = self.add(learnt);
                 self.assignment
                     .set(lit_assert, Reason::Propagation { i_clause });
+            }
+
+            if self.conflicts >= *self.restart_threshold.peek().unwrap() {
+                self.conflicts = 0;
+                self.restart_threshold.next();
+                if self.assignment.last_level() >= 1 {
+                    self.assignment.backtrack(1);
+                    self.prop_head = std::cmp::min(self.prop_head, self.assignment.trail.len());
+                }
             }
         }
 
@@ -531,7 +570,7 @@ pub fn verify(problem: &Problem, sat: bool, solution: &Solution) -> bool {
 mod tests {
     use crate::types::{Clause, Problem};
 
-    use super::{verify, Assignment, Reason, Solver};
+    use super::{verify, Assignment, Luby, Reason, Solver};
 
     #[test]
     fn assignment() {
@@ -549,6 +588,13 @@ mod tests {
         ass.backtrack(1);
         assert_eq!(ass.eval(2), None);
         assert_eq!(ass.eval(1), None);
+    }
+
+    #[test]
+    fn luby() {
+        let expected = vec![1, 1, 2, 1, 1, 2, 4, 1, 1, 2, 1, 1, 2, 4, 8, 1, 1, 2, 1, 1];
+        let actual: Vec<usize> = Luby::new(1).take(20).collect();
+        assert_eq!(expected, actual);
     }
 
     fn check(clauses: Vec<Clause>, sat: bool) {
