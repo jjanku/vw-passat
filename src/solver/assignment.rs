@@ -1,6 +1,4 @@
-use crate::types::Lit;
-
-use super::to_var;
+use crate::types::{to_var, Lit};
 
 #[derive(Clone, Copy, Debug)]
 pub enum Reason {

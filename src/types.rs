@@ -1,4 +1,13 @@
+// TODO: make Lit, Var proper structs?
+
 pub type Lit = i32;
+
+pub type Var = usize;
+
+pub fn to_var(lit: Lit) -> Var {
+    assert_ne!(lit, 0);
+    lit.unsigned_abs() as Var
+}
 
 pub type Clause = Vec<Lit>;
 

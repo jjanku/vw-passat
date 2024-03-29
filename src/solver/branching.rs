@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
-use crate::types::Lit;
+use crate::types::{Lit, Var};
 
-use super::{assignment::Assignment, Var};
+use super::assignment::Assignment;
 
 #[derive(Clone, Copy, PartialEq)]
 struct OrdF64(f64);

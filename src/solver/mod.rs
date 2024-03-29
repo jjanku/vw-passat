@@ -7,18 +7,10 @@ use std::iter::Peekable;
 
 use crate::{
     solver::assignment::Reason,
-    types::{Clause, Lit, Problem, Solution},
+    types::{to_var, Clause, Lit, Problem, Solution},
 };
 
 use self::{assignment::Assignment, branching::Chooser, map::LitMap, restart::Luby};
-
-type Var = usize;
-
-// TODO: move to impl Lit?
-fn to_var(lit: Lit) -> Var {
-    assert_ne!(lit, 0);
-    lit.unsigned_abs() as Var
-}
 
 pub struct Solver {
     clauses: Vec<Clause>,
