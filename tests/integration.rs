@@ -19,6 +19,16 @@ fn sat_uniform_v50_c218() {
 }
 
 #[test]
+fn sat_uniform_v100_c430() {
+    test_dir("tests/data/uf100-430", true);
+}
+
+#[test]
 fn unsat_uniform_v50_c218() {
     test_dir("tests/data/uuf50-218", false);
+}
+
+#[test]
+fn unsat_uniform_v100_c430() {
+    test_dir("tests/data/uuf100-430", false);
 }
