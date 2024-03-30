@@ -1,0 +1,6 @@
+test:
+  tags:
+    - shared-fi
+  image: rust:latest
+  script:
+    - cargo test --release
