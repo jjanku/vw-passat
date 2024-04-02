@@ -1,4 +1,4 @@
-use vw_passat::{io, solver};
+use vw_passat::{io, parallel};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -10,7 +10,6 @@ fn main() {
     let mut output = std::io::stdout();
 
     let problem = io::read_problem(&mut input);
-    let mut solver = solver::Solver::new(problem);
-    let solution = solver.solve();
+    let solution = parallel::solve(problem);
     io::write_solution(&mut output, &solution);
 }
