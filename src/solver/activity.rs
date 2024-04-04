@@ -195,3 +195,52 @@ impl Evsids {
         res
     }
 }
+
+pub struct ClauseTracker {
+    k: f64,
+    activity: Vec<OrdF64>,
+}
+
+impl ClauseTracker {
+    pub fn new(clause_count: usize) -> Self {
+        Self {
+            k: 1.0,
+            activity: Vec::with_capacity(clause_count),
+        }
+    }
+
+    pub fn add(&mut self) {
+        self.activity.push(OrdF64::new(0.0));
+    }
+
+    pub fn swap_remove(&mut self, i_clause: usize) -> f64 {
+        self.activity.swap_remove(i_clause).0
+    }
+
+    pub fn touch(&mut self, i_clause: usize) {
+        self.activity[i_clause] = OrdF64::new(self.activity[i_clause].0 + self.k);
+    }
+
+    pub fn get_activity(&mut self, i_clause: usize) -> f64 {
+        self.activity[i_clause].0
+    }
+
+    pub fn select_pivot(&self, start: usize) -> f64 {
+        let mut v: Vec<OrdF64> = self.activity[start..].to_vec();
+        v.sort();
+        let pivot = v[v.len() / 2];
+        pivot.0
+    }
+
+    pub fn rescale(&mut self) {
+        self.k *= 1.001;
+
+        const THRESHOLD: f64 = 10e20;
+        if self.k > THRESHOLD {
+            for val in &mut self.activity {
+                *val = OrdF64::new(val.0 / THRESHOLD);
+            }
+            self.k /= THRESHOLD;
+        }
+    }
+}

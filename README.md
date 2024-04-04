@@ -32,12 +32,13 @@ Required:
 - Output in SAT Competition format ([io](src/io/mod.rs))
 - Unit propagation using two watched literals ([solver](src/solver/mod.rs))
 - Conflict-driven clause learning (CDCL) ([solver](src/solver/mod.rs))
-- EVSIDS branching heuristic ([branching](src/solver/branching.rs))
+- EVSIDS branching heuristic ([activity](src/solver/activity.rs))
 - Restarts using Luby sequence ([restart](src/solver/restart.rs))
 
 Additional:
 
 - Parallelization ([parallel](src/parallel.rs))
 - Phase saving ([assignment](src/solver/assignment.rs))
+- Clause forgetting ([activity](src/solver/activity.rs), [solver](src/solver/mod.rs))
 - DRAT proof generation (plain, binary) ([drat](src/io/drat.rs))
 - Simple benchmarking utility ([benchmark](tests/benchmark.py))

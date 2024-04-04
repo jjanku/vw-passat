@@ -85,6 +85,17 @@ impl Assignment {
             self.data[to_var(lit)] = None;
         }
     }
+
+    pub fn rename_clause(&mut self, i: usize, j: usize) {
+        for &lit in &self.trail {
+            let data = self.data[to_var(lit)].as_mut().unwrap();
+            if let Reason::Propagation { i_clause } = data.reason {
+                if i_clause == i {
+                    data.reason = Reason::Propagation { i_clause: j };
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

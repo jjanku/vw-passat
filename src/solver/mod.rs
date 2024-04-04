@@ -1,5 +1,5 @@
+mod activity;
 mod assignment;
-mod branching;
 mod map;
 mod restart;
 
@@ -10,10 +10,17 @@ use crate::{
     types::{to_var, Clause, Lit, Problem, Proof, ProofStep, Solution},
 };
 
-use self::{assignment::Assignment, branching::Evsids, map::LitMap, restart::Luby};
+use self::{
+    activity::{ClauseTracker, Evsids},
+    assignment::Assignment,
+    map::LitMap,
+    restart::Luby,
+};
 
 pub struct Solver {
     clauses: Vec<Clause>,
+    min_clause_count: usize,
+    max_learnt: f64,
 
     assignment: Assignment,
 
@@ -21,6 +28,7 @@ pub struct Solver {
     prop_head: usize,
 
     evsids: Evsids,
+    clause_tracker: ClauseTracker,
 
     conflicts: usize,
     restart_threshold: Peekable<Luby>,
@@ -42,10 +50,13 @@ impl Solver {
 
         let mut solver = Solver {
             clauses: Vec::with_capacity(clauses.len()),
+            min_clause_count: clauses.len(),
+            max_learnt: clauses.len() as f64 / 3.0,
             assignment: Assignment::new(var_count),
             watched: LitMap::<Vec<usize>>::new(var_count),
             prop_head: 0,
             evsids: Evsids::new(var_count),
+            clause_tracker: ClauseTracker::new(clauses.len()),
             conflicts: 0,
             restart_threshold: Luby::new(16).peekable(),
             proof,
@@ -67,7 +78,55 @@ impl Solver {
             self.watched[lit1].push(i);
         }
         self.clauses.push(clause);
+        self.clause_tracker.add();
         i
+    }
+
+    fn remove(&mut self, i_clause: usize) -> Option<Clause> {
+        for &lit in self.assignment.trail() {
+            let reason = self.assignment.reason(lit).unwrap();
+            if let Reason::Propagation { i_clause: i } = reason {
+                if i == i_clause {
+                    // removal blocked
+                    return None;
+                }
+            }
+        }
+
+        for &lit in &self.clauses[i_clause] {
+            self.watched[lit].retain(|&i| i != i_clause);
+        }
+
+        let i_last = self.clauses.len() - 1;
+        for &lit in &self.clauses[i_last] {
+            for i in &mut self.watched[lit] {
+                if *i == i_last {
+                    *i = i_clause;
+                }
+            }
+        }
+        self.assignment.rename_clause(i_last, i_clause);
+
+        self.clause_tracker.swap_remove(i_clause);
+        Some(self.clauses.swap_remove(i_clause))
+    }
+
+    fn prune(&mut self) {
+        let pivot = self.clause_tracker.select_pivot(self.min_clause_count);
+
+        let mut i = self.min_clause_count;
+        while i < self.clauses.len() {
+            if self.clause_tracker.get_activity(i) < pivot {
+                let removed = self.remove(i);
+                if let Some(clause) = removed {
+                    if let Some(proof) = self.proof.as_mut() {
+                        proof.push((ProofStep::Delete, clause));
+                    }
+                    continue;
+                }
+            }
+            i += 1;
+        }
     }
 
     fn propagate(&mut self) -> Option<usize> {
@@ -131,6 +190,8 @@ impl Solver {
         let mut learnt = self.clauses[i_conflict].clone();
         let last_level = self.assignment.last_level();
 
+        self.clause_tracker.touch(i_conflict);
+
         let mut i_trail = self.assignment.trail().len();
         let i_assert = loop {
             // FIXME: which vars should be touched?
@@ -157,6 +218,8 @@ impl Solver {
             };
             let reason = &self.clauses[i_reason];
             debug_assert!(reason.contains(&on_lit));
+
+            self.clause_tracker.touch(i_reason);
 
             let len_before = learnt.len();
             learnt.retain(|&lit| lit != -on_lit);
@@ -189,6 +252,7 @@ impl Solver {
         };
 
         self.evsids.rescale();
+        self.clause_tracker.rescale();
 
         (learnt, backtrack_level)
     }
@@ -234,6 +298,13 @@ impl Solver {
                 let i_clause = self.add(learnt);
                 self.assignment
                     .set(lit_assert, Reason::Propagation { i_clause });
+            }
+
+            let learnt_count = self.clauses.len() - self.min_clause_count;
+            let removable = learnt_count.saturating_sub(self.assignment.trail().len());
+            if removable > self.max_learnt as usize {
+                self.prune();
+                self.max_learnt *= 1.001;
             }
 
             if self.conflicts >= *self.restart_threshold.peek().unwrap() {
