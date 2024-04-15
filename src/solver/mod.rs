@@ -40,7 +40,9 @@ impl Solver {
             restart_threshold: Luby::new(16).peekable(),
         };
 
-        for clause in clauses {
+        for mut clause in clauses {
+            clause.sort();
+            clause.dedup();
             solver.add(clause);
         }
 
