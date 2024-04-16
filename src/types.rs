@@ -22,3 +22,11 @@ pub enum Solution {
     Unsat,
     Unknown,
 }
+
+#[derive(Clone, Copy)]
+pub enum ProofStep {
+    Add,
+    Delete,
+}
+
+pub type Proof = Vec<(ProofStep, Clause)>;

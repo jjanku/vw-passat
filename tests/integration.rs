@@ -1,21 +1,58 @@
-use std::fs;
+use std::{fs, path::Path};
 
-use vw_passat::{io, parallel, solver};
+use vw_passat::{
+    io::{self, drat},
+    parallel, solver,
+    types::Proof,
+};
+
+fn verify_proof(input: impl AsRef<Path>, proof: &Proof, format: drat::Format) -> bool {
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new("drat-trim")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .arg(input.as_ref())
+        .arg(match format {
+            drat::Format::Binary => "-i",
+            drat::Format::Plain => "-I",
+        })
+        .spawn()
+        .expect("drat-trim should be installed");
+
+    let mut stdin = child.stdin.take().unwrap();
+    drat::write_proof(&mut stdin, format, proof);
+    drop(stdin);
+
+    let status = child.wait().unwrap();
+    status.success()
+}
 
 enum Mode {
     Serial,
     Parallel,
+    Prover,
 }
 
 fn test_dir(path: &str, sat: bool, mode: Mode) {
     for entry in fs::read_dir(path).unwrap() {
         let path = entry.unwrap().path();
-        let mut file = fs::File::open(path).unwrap();
+        let mut file = fs::File::open(&path).unwrap();
 
         let problem = io::read_problem(&mut file);
         let solution = match mode {
             Mode::Serial => solver::Solver::new(problem.clone()).solve(),
             Mode::Parallel => parallel::solve(problem.clone(), None),
+            Mode::Prover => {
+                let mut solver = solver::Solver::with_proof(problem.clone());
+                let solution = solver.solve();
+                assert!(verify_proof(
+                    &path,
+                    solver.proof().unwrap(),
+                    drat::Format::Binary
+                ));
+                solution
+            }
         };
         assert!(solver::verify(&problem, sat, &solution));
     }
@@ -39,4 +76,10 @@ fn unsat_uniform_v50_c218() {
 #[test]
 fn unsat_uniform_v100_c430() {
     test_dir("tests/data/uuf100-430", false, Mode::Parallel);
+}
+
+#[test]
+#[ignore = "requires drat-trim and more time"]
+fn prove_unsat_uniform_v125_c538() {
+    test_dir("tests/data/uuf125-538", false, Mode::Prover);
 }

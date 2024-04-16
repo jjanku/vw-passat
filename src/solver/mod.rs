@@ -7,7 +7,7 @@ use std::iter::Peekable;
 
 use crate::{
     solver::assignment::Reason,
-    types::{to_var, Clause, Lit, Problem, Solution},
+    types::{to_var, Clause, Lit, Problem, Proof, ProofStep, Solution},
 };
 
 use self::{assignment::Assignment, branching::Evsids, map::LitMap, restart::Luby};
@@ -24,10 +24,20 @@ pub struct Solver {
 
     conflicts: usize,
     restart_threshold: Peekable<Luby>,
+
+    proof: Option<Proof>,
 }
 
 impl Solver {
     pub fn new(problem: Problem) -> Self {
+        Self::create(problem, None)
+    }
+
+    pub fn with_proof(problem: Problem) -> Self {
+        Self::create(problem, Some(vec![]))
+    }
+
+    fn create(problem: Problem, proof: Option<Proof>) -> Self {
         let Problem { var_count, clauses } = problem;
 
         let mut solver = Solver {
@@ -38,6 +48,7 @@ impl Solver {
             evsids: Evsids::new(var_count),
             conflicts: 0,
             restart_threshold: Luby::new(16).peekable(),
+            proof,
         };
 
         for mut clause in clauses {
@@ -209,6 +220,10 @@ impl Solver {
 
                 let (learnt, level) = self.analyze(i_conflict);
 
+                if let Some(proof) = self.proof.as_mut() {
+                    proof.push((ProofStep::Add, learnt.clone()));
+                }
+
                 if level == 0 {
                     return Solution::Unsat;
                 }
@@ -233,6 +248,10 @@ impl Solver {
 
         let model: Vec<Lit> = self.assignment.trail().to_vec();
         Solution::Sat { model }
+    }
+
+    pub fn proof(&self) -> Option<&Proof> {
+        self.proof.as_ref()
     }
 }
 

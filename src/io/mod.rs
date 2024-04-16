@@ -1,3 +1,5 @@
+pub mod drat;
+
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 
 use crate::types::{Lit, Problem, Solution};

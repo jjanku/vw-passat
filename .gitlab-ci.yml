@@ -2,5 +2,10 @@ test:
   tags:
     - shared-fi
   image: rust:latest
+  before_script:
+    - git clone https://github.com/marijnheule/drat-trim.git
+    - cd drat-trim
+    - make
+    - install drat-trim /usr/bin/
   script:
-    - cargo test --release
+    - cargo test --release -- --include-ignored
