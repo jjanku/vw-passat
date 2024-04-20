@@ -79,10 +79,12 @@ fn split(problem: Problem, n: usize) -> Vec<Problem> {
     subproblems
 }
 
-pub fn solve(problem: Problem) -> Solution {
-    let n = thread::available_parallelism()
-        .map(|val| val.get())
-        .unwrap_or(2);
+pub fn solve(problem: Problem, n: Option<usize>) -> Solution {
+    let n = n.unwrap_or(
+        thread::available_parallelism()
+            .map(|val| val.get())
+            .unwrap_or(2),
+    );
 
     let subproblems = split(problem, n);
 

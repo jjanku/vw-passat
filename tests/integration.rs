@@ -15,7 +15,7 @@ fn test_dir(path: &str, sat: bool, mode: Mode) {
         let problem = io::read_problem(&mut file);
         let solution = match mode {
             Mode::Serial => solver::Solver::new(problem.clone()).solve(),
-            Mode::Parallel => parallel::solve(problem.clone()),
+            Mode::Parallel => parallel::solve(problem.clone(), None),
         };
         assert!(solver::verify(&problem, sat, &solution));
     }
