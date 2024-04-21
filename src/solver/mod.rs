@@ -213,7 +213,7 @@ impl Solver {
         }
 
         while let Some(var) = self.evsids.choose(&self.assignment) {
-            self.assignment.set(-(var as Lit), Reason::Decision);
+            self.assignment.decide(var);
 
             while let Some(i_conflict) = self.propagate() {
                 self.conflicts += 1;

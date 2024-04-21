@@ -1,4 +1,4 @@
-use crate::types::{to_var, Lit};
+use crate::types::{to_var, Lit, Var};
 
 use super::map::{var_map, VarMap};
 
@@ -17,6 +17,7 @@ struct VarData {
 
 pub struct Assignment {
     data: VarMap<Option<VarData>>,
+    saved: VarMap<bool>,
     trail: Vec<Lit>,
     levels: Vec<usize>,
 }
@@ -25,6 +26,7 @@ impl Assignment {
     pub fn new(var_count: usize) -> Self {
         Self {
             data: var_map(var_count),
+            saved: var_map(var_count),
             trail: vec![],
             levels: vec![],
         }
@@ -48,7 +50,15 @@ impl Assignment {
             level: self.last_level(),
             reason,
         };
-        self.data[to_var(lit)] = Some(data);
+        let var = to_var(lit);
+        self.saved[var] = data.value;
+        self.data[var] = Some(data);
+    }
+
+    pub fn decide(&mut self, var: Var) {
+        let lvar = var as Lit;
+        let lit = if self.saved[var] { lvar } else { -lvar };
+        self.set(lit, Reason::Decision);
     }
 
     pub fn trail(&self) -> &[Lit] {
