@@ -40,5 +40,6 @@ Additional:
 - Parallelization ([parallel](src/parallel.rs))
 - Phase saving ([assignment](src/solver/assignment.rs))
 - Clause forgetting ([activity](src/solver/activity.rs), [solver](src/solver/mod.rs))
+- Basic learnt clause minimization ([solver](src/solver/mod.rs))
 - DRAT proof generation (plain, binary) ([drat](src/io/drat.rs))
 - Simple benchmarking utility ([benchmark](tests/benchmark.py))

@@ -186,6 +186,25 @@ impl Solver {
         None
     }
 
+    // based on minisat's basic clause minimization
+    fn simplify(&mut self, learnt: &mut Clause) {
+        let mut i = 1;
+        while i < learnt.len() {
+            if let Some(Reason::Propagation { i_clause }) = self.assignment.reason(learnt[i]) {
+                let remove = self.clauses[i_clause].iter().all(|&lit| {
+                    learnt.contains(&lit)
+                        || learnt.contains(&-lit)
+                        || self.assignment.level(lit) == Some(0)
+                });
+                if remove {
+                    learnt.swap_remove(i);
+                    continue;
+                }
+            }
+            i += 1;
+        }
+    }
+
     fn analyze(&mut self, i_conflict: usize) -> (Clause, usize) {
         let mut learnt = self.clauses[i_conflict].clone();
         let last_level = self.assignment.last_level();
@@ -232,6 +251,10 @@ impl Solver {
             }
         };
 
+        learnt.swap(0, i_assert);
+
+        self.simplify(&mut learnt);
+
         let backtrack_level = if learnt.len() == 1 {
             if self.assignment.last_level() > 0 {
                 1
@@ -239,8 +262,6 @@ impl Solver {
                 self.assignment.eval(learnt[0]).unwrap() as usize
             }
         } else {
-            learnt.swap(0, i_assert);
-
             let (i_max, _) = learnt[1..]
                 .iter()
                 .enumerate()
