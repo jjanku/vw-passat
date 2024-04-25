@@ -6,19 +6,22 @@ use vw_passat::{
     types::Proof,
 };
 
-fn verify_proof(input: impl AsRef<Path>, proof: &Proof, format: drat::Format) -> bool {
+fn verify_proof(input: impl AsRef<Path>, sat: bool, proof: &Proof, format: drat::Format) -> bool {
     use std::process::{Command, Stdio};
 
-    let mut child = Command::new("drat-trim")
-        .stdin(Stdio::piped())
+    let mut cmd = Command::new("drat-trim");
+    cmd.stdin(Stdio::piped())
         .stdout(Stdio::null())
         .arg(input.as_ref())
         .arg(match format {
             drat::Format::Binary => "-i",
             drat::Format::Plain => "-I",
-        })
-        .spawn()
-        .expect("drat-trim should be installed");
+        });
+    if sat {
+        cmd.arg("-S");
+    }
+
+    let mut child = cmd.spawn().expect("drat-trim should be installed");
 
     let mut stdin = child.stdin.take().unwrap();
     drat::write_proof(&mut stdin, format, proof);
@@ -48,6 +51,7 @@ fn test_dir(path: &str, sat: bool, mode: Mode) {
                 let solution = solver.solve();
                 assert!(verify_proof(
                     &path,
+                    sat,
                     solver.proof().unwrap(),
                     drat::Format::Binary
                 ));
@@ -76,6 +80,12 @@ fn unsat_uniform_v50_c218() {
 #[test]
 fn unsat_uniform_v100_c430() {
     test_dir("tests/data/uuf100-430", false, Mode::Parallel);
+}
+
+#[test]
+#[ignore = "requires drat-trim and more time"]
+fn prove_sat_uniform_v125_c538() {
+    test_dir("tests/data/uf125-538", true, Mode::Prover);
 }
 
 #[test]

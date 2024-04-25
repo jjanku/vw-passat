@@ -3,9 +3,8 @@ test:
     - shared-fi
   image: rust:latest
   before_script:
-    - git clone https://github.com/marijnheule/drat-trim.git
-    - cd drat-trim
-    - make
+    - wget https://www.cs.utexas.edu/~marijn/drat-trim/drat-trim.c
+    - gcc -O2 -o drat-trim drat-trim.c
     - install drat-trim /usr/bin/
   script:
     - cargo test --release -- --include-ignored
