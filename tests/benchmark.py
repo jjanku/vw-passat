@@ -1,8 +1,10 @@
 import argparse
+import csv
 import os
 import os.path as path
 import re
 import subprocess
+import time
 
 
 # paths are relative to this file
@@ -31,16 +33,22 @@ def benchmark(dir, jobs):
     def print_progress(end=''):
         print(f'\r{name:16} {solved:4} / {total:4}', end=end)
 
+    results = []
+
     for file in files:
         print_progress()
         try:
+            start = time.perf_counter()
             run_solver(path.join(dir, file), jobs=jobs)
+            end = time.perf_counter()
+            duration = end - start
+            results.append((file, duration))
             solved += 1
         except subprocess.TimeoutExpired:
-            pass
+            results.append((file, None))
     print_progress(end='\n')
 
-    return solved, total
+    return results
 
 
 def dir_key(dir):
@@ -57,6 +65,9 @@ def main():
     parser.add_argument(
         '-j', '--jobs', help='run vw-passat with -j JOBS'
     )
+    parser.add_argument(
+        '-o', '--output', help='generate a CSV file with the results'
+    )
     args = parser.parse_args()
 
     dir_pattern = re.compile(
@@ -72,13 +83,21 @@ def main():
     total = 0
     solved = 0
 
+    if args.output is not None:
+        writer = csv.writer(open(args.output, 'w', newline=''))
+        writer.writerow(['file', 'time'])
+    else:
+        writer = None
+
     for dir in dirs:
         if dir_pattern.search(dir) is None:
             continue
         try:
-            res = benchmark(path.join(DATA, dir), args.jobs)
-            solved += res[0]
-            total += res[1]
+            results = benchmark(path.join(DATA, dir), args.jobs)
+            if writer is not None:
+                writer.writerows(results)
+            solved += sum(t is not None for _, t in results)
+            total += len(results)
         except KeyboardInterrupt:
             print(' (Skipped)')
 
