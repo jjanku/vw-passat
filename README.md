@@ -14,10 +14,12 @@ cargo build --release
 
 The output binary is stored in `target/release/vw-passat`. Your Passat is now ready to go!
 
-Usage:
+Basic usage:
 
 ```bash
 vw-passat input.cnf
 ```
 
 The solution is printed to `stdout`.
+
+For more advanced options, see `vw-passat --help`
