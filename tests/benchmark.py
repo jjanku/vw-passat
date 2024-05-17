@@ -10,13 +10,18 @@ DATA = './data'
 SOLVER = '../target/release/vw-passat'
 
 
-def run_solver(input, timeout = 10):
+def run_solver(input, timeout = 10, jobs = None):
+    args = [SOLVER]
+    if jobs is not None:
+        args.extend(['-j', jobs])
+    args.append(input)
+
     subprocess.run(
-        [SOLVER, input], timeout=timeout, capture_output=True
+        args, timeout=timeout, capture_output=True
     )
 
 
-def benchmark(dir):
+def benchmark(dir, jobs):
     name = path.basename(dir)
     files = os.listdir(dir)
 
@@ -29,7 +34,7 @@ def benchmark(dir):
     for file in files:
         print_progress()
         try:
-            run_solver(path.join(dir, file))
+            run_solver(path.join(dir, file), jobs=jobs)
             solved += 1
         except subprocess.TimeoutExpired:
             pass
@@ -48,6 +53,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--filter', help='run tests only in dirs matching FILTER'
+    )
+    parser.add_argument(
+        '-j', '--jobs', help='run vw-passat with -j JOBS'
     )
     args = parser.parse_args()
 
@@ -68,7 +76,7 @@ def main():
         if dir_pattern.search(dir) is None:
             continue
         try:
-            res = benchmark(path.join(DATA, dir))
+            res = benchmark(path.join(DATA, dir), args.jobs)
             solved += res[0]
             total += res[1]
         except KeyboardInterrupt:
