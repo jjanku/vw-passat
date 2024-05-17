@@ -23,3 +23,21 @@ vw-passat input.cnf
 The solution is printed to `stdout`.
 
 For more advanced options, see `vw-passat --help`
+
+## Implemented functionality
+
+Required:
+
+- Input in DIMACS format ([io](src/io/mod.rs))
+- Output in SAT Competition format ([io](src/io/mod.rs))
+- Unit propagation using two watched literals ([solver](src/solver/mod.rs))
+- Conflict-driven clause learning (CDCL) ([solver](src/solver/mod.rs))
+- EVSIDS branching heuristic ([branching](src/solver/branching.rs))
+- Restarts using Luby sequence ([restart](src/solver/restart.rs))
+
+Additional:
+
+- Parallelization ([parallel](src/parallel.rs))
+- Phase saving ([assignment](src/solver/assignment.rs))
+- DRAT proof generation (plain, binary) ([drat](src/io/drat.rs))
+- Simple benchmarking utility ([benchmark](tests/benchmark.py))
