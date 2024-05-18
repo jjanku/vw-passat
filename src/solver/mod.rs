@@ -58,7 +58,7 @@ impl Solver {
             evsids: Evsids::new(var_count),
             clause_tracker: ClauseTracker::new(clauses.len()),
             conflicts: 0,
-            restart_threshold: Luby::new(16).peekable(),
+            restart_threshold: Luby::new(4096).peekable(),
             proof,
         };
 
