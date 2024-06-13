@@ -2,6 +2,7 @@ use std::io::{BufWriter, Write};
 
 use crate::types::Proof;
 
+#[derive(Clone, clap::ValueEnum)]
 pub enum Format {
     Binary,
     Plain,

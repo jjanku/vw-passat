@@ -1,84 +1,23 @@
+use clap::Parser;
 use vw_passat::{io, parallel, solver};
 
-// TODO: migrate to clap
+#[derive(Parser)]
+#[command(about = "A CDCL-based SAT solver.")]
 struct Args {
+    /// Path to a file in DIMACS format
     input: String,
+
+    /// Split problem into N subproblems,
+    /// defaults to # available CPUs
+    #[arg(short, long, value_name = "N")]
     jobs: Option<usize>,
+
+    /// Generate a DRAT proof
+    #[arg(short, long, value_name = "PATH")]
     proof: Option<String>,
+    /// Format of the generated proof
+    #[arg(long, value_name = "FORMAT", value_enum, default_value_t = io::drat::Format::Plain)]
     pformat: io::drat::Format,
-}
-
-impl Args {
-    const HELP: &'static str = "
-A CDCL-based SAT solver.
-
-Usage:
-    vw-passat [OPTIONS] <INPUT>
-
-Args:
-    <INPUT>     Path to a file in DIMACS format
-
-Options:
-    -h, --help          Print help
-    -j, --jobs <N>      Split problem into N subproblems,
-                        defaults to # available CPUs
-
-    -p, --proof <PATH>  Generate a DRAT proof
-    --pformat <FORMAT>  Format of the generated proof,
-                        'binary' or 'plain' (default)
-";
-
-    fn parse() -> Self {
-        let mut args = std::env::args();
-        args.next();
-
-        let mut input: Option<String> = None;
-        let mut jobs: Option<usize> = None;
-        let mut proof: Option<String> = None;
-        let mut pformat: io::drat::Format = io::drat::Format::Plain;
-
-        while let Some(arg) = args.next() {
-            match arg.as_str() {
-                "-h" | "--help" => {
-                    println!("{}", Self::HELP);
-                    std::process::exit(0);
-                }
-                "-j" | "--jobs" => {
-                    let n = args
-                        .next()
-                        .expect("a number N should follow after -j and --jobs")
-                        .parse()
-                        .unwrap();
-                    jobs = Some(n);
-                }
-                "-p" | "--proof" => {
-                    let path = args
-                        .next()
-                        .expect("a path should follow after -p and --proof");
-                    proof = Some(path);
-                }
-                "--pformat" => {
-                    let format = args.next().expect("a format should be specified");
-                    pformat = match format.as_str() {
-                        "binary" => io::drat::Format::Binary,
-                        "plain" => io::drat::Format::Plain,
-                        _ => panic!("format should be 'binary' or 'plain'"),
-                    }
-                }
-                _ => {
-                    assert!(input.is_none(), "too many positional arguments");
-                    input = Some(arg)
-                }
-            }
-        }
-
-        Self {
-            input: input.expect("INPUT should be set"),
-            jobs,
-            proof,
-            pformat,
-        }
-    }
 }
 
 fn main() {
