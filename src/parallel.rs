@@ -37,8 +37,6 @@ fn frequent_vars(problem: &Problem) -> FrequentVars {
 type Cube = Vec<Lit>;
 
 fn cubes(vars: &[Var], n: usize) -> Vec<Cube> {
-    assert!(n <= 2usize.pow(vars.len() as u32));
-
     match n {
         0 => vec![],
         1 => vec![vec![]],
