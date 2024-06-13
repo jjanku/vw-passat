@@ -1,0 +1,20 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install drat-trim
+      run: |
+        wget https://www.cs.utexas.edu/~marijn/drat-trim/drat-trim.c
+        gcc -O2 -o drat-trim drat-trim.c
+        sudo install drat-trim /usr/bin/
+    - name: Run tests
+      run: cargo test --release -- --include-ignored
