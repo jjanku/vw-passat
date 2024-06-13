@@ -51,15 +51,15 @@ mod binary {
             ProofStep::Add => b'a',
             ProofStep::Delete => b'd',
         };
-        writer.write(&[step_code]).unwrap();
+        writer.write_all(&[step_code]).unwrap();
 
         let mut buf = [0; BUF_SIZE];
         for &lit in clause {
             let enc = encode_lit(lit, &mut buf);
-            writer.write(enc).unwrap();
+            writer.write_all(enc).unwrap();
         }
 
-        writer.write(&[0]).unwrap();
+        writer.write_all(&[0]).unwrap();
     }
 
     #[cfg(test)]
