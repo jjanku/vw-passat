@@ -1,6 +1,8 @@
 # vw-passat
 
-Jakub Janků (514496)
+A simple CDCL-based SAT solver developed within the course [IA085 Satisfiability and Automated Reasoning](https://is.muni.cz/predmet/fi/jaro2025/IA085) at FI MUNI.
+
+Author: Jakub Janků (514496)
 
 ![VW meme](res/meme.gif)
 
